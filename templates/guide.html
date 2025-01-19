@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Training Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #0056b3;
+        }
+        h2 {
+            color: #0056b3;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 5px;
+        }
+        p {
+            margin: 10px 0;
+        }
+        ul {
+            margin: 10px 0 20px 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffeeba;
+            padding: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Guide to Tuning Model Training Parameters</h1>
+    <p>This guide provides recommendations for tuning parameters of the three AI models (DQN, Genetic Algorithm, and Particle Swarm Optimization) depending on the maze size.</p>
+    
+    <h2>1. Deep Q-Learning (DQN)</h2>
+    <p><strong>Key Parameters:</strong></p>
+    <ul>
+        <li><strong>Learning Rate:</strong> Smaller values (e.g., 0.001) for larger mazes to ensure stable convergence.</li>
+        <li><strong>Number of Episodes:</strong> Increase episodes proportionally to the maze size. E.g.:
+            <ul>
+                <li>Small mazes (e.g., 5x5): 500 episodes</li>
+                <li>Medium mazes (e.g., 10x10): 1000 episodes</li>
+                <li>Large mazes (e.g., 20x20): 2000+ episodes</li>
+            </ul>
+        </li>
+        <li><strong>Batch Size:</strong> 64 for smaller mazes, up to 128 for larger ones to leverage more experience samples.</li>
+        <li><strong>Replay Buffer Size:</strong> Larger mazes benefit from larger buffers (e.g., 50,000+).</li>
+        <li><strong>Epsilon Decay:</strong> Slower decay (e.g., 0.995) for larger mazes to allow more exploration.</li>
+    </ul>
+    
+    <h2>2. Genetic Algorithm (GA)</h2>
+    <p><strong>Key Parameters:</strong></p>
+    <ul>
+        <li><strong>Population Size:</strong> Increase for larger mazes. E.g.:
+            <ul>
+                <li>Small mazes: 50-100</li>
+                <li>Medium mazes: 100-200</li>
+                <li>Large mazes: 200-500</li>
+            </ul>
+        </li>
+        <li><strong>Number of Generations:</strong> Larger mazes require more generations. E.g.:
+            <ul>
+                <li>Small mazes: 500 generations</li>
+                <li>Medium mazes: 1000 generations</li>
+                <li>Large mazes: 2000+ generations</li>
+            </ul>
+        </li>
+        <li><strong>Mutation Rate:</strong> Start with 0.1 and adjust based on performance. Lower values (0.05) for fine-tuning larger mazes.</li>
+        <li><strong>Crossover Rate:</strong> High values (0.8-0.9) for larger mazes to promote diversity.</li>
+    </ul>
+    <div class="note">
+        <strong>Note:</strong> For larger mazes, ensure sufficient computational resources, as both population size and generations scale computational cost.
+    </div>
+    
+    <h2>3. Particle Swarm Optimization (PSO)</h2>
+    <p><strong>Key Parameters:</strong></p>
+    <ul>
+        <li><strong>Swarm Size:</strong> Proportional to maze size. E.g.:
+            <ul>
+                <li>Small mazes: 20-50 particles</li>
+                <li>Medium mazes: 50-100 particles</li>
+                <li>Large mazes: 100-200 particles</li>
+            </ul>
+        </li>
+        <li><strong>Iterations:</strong> Increase iterations for larger mazes. E.g.:
+            <ul>
+                <li>Small mazes: 200-500 iterations</li>
+                <li>Medium mazes: 500-1000 iterations</li>
+                <li>Large mazes: 1000-2000+ iterations</li>
+            </ul>
+        </li>
+        <li><strong>Inertia Weight:</strong> Start with 0.9 and gradually reduce to 0.4 during training.</li>
+        <li><strong>Cognitive and Social Factors (c1, c2):</strong> Balanced values like 1.5 ensure exploration and exploitation.</li>
+    </ul>
+    
+    <h2>General Tips</h2>
+    <ul>
+        <li>Monitor training performance and adjust parameters dynamically based on progress.</li>
+        <li>Use logging and visualization to track learning curves and identify bottlenecks.</li>
+        <li>For large mazes, consider parallelizing computations if resources allow.</li>
+    </ul>
+</body>
+</html>

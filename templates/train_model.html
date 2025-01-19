@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Train Model</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Train Model</h1>
+    <form id="train-model-form">
+        <label for="model_type">Model Type:</label>
+        <select id="model_type" name="model_type" required>
+            <option value="dqn">DQN</option>
+            <!-- Add more model types here -->
+        </select>
+        <br>
+
+        <label for="model_name">Model Name:</label>
+        <input type="text" id="model_name" name="model_name" required>
+        <br>
+
+        <label for="maze_name">Maze to Train On:</label>
+        <input type="text" id="maze_name" name="maze_name" required>
+        <br>
+
+        <div id="model-parameters">
+            <!-- DQN parameters will be dynamically added here -->
+        </div>
+
+        <button type="submit">Train Model</button>
+    </form>
+
+    <script>
+        const modelTypeElement = document.getElementById("model_type");
+        const modelParametersDiv = document.getElementById("model-parameters");
+
+        modelTypeElement.addEventListener("change", updateModelParameters);
+
+        function updateModelParameters() {
+            const modelType = modelTypeElement.value;
+            modelParametersDiv.innerHTML = ""; // Clear previous parameters
+            if (modelType === "genetic") {
+                modelParametersDiv.innerHTML = `
+                    <label for="population_size">Population Size:</label>
+                    <input type="number" id="population_size" name="parameters[population_size]" value="100" required>
+                    <br>
+
+                    <label for="generations">Generations:</label>
+                    <input type="number" id="generations" name="parameters[generations]" value="500" required>
+                    <br>
+
+                    <label for="mutation_rate">Mutation Rate:</label>
+                    <input type="number" step="0.01" id="mutation_rate" name="parameters[mutation_rate]" value="0.1" required>
+                    <br>
+                `;
+            }
+            if (modelType === "dqn") {
+                modelParametersDiv.innerHTML = `
+                    <label for="num_episodes">Number of Episodes:</label>
+                    <input type="number" id="num_episodes" name="parameters[num_episodes]" value="500" required>
+                    <br>
+
+                    <label for="batch_size">Batch Size:</label>
+                    <input type="number" id="batch_size" name="parameters[batch_size]" value="64" required>
+                    <br>
+
+                    <label for="learning_rate">Learning Rate:</label>
+                    <input type="number" step="0.0001" id="learning_rate" name="parameters[learning_rate]" value="0.001" required>
+                    <br>
+                `;
+            }
+        }
+
+        // Initialize parameters for default selection
+        updateModelParameters();
+
+        document.getElementById("train-model-form").onsubmit = async (event) => {
+            event.preventDefault();
+            const form = new FormData(event.target);
+            const data = Object.fromEntries(form.entries());
+
+            // Parse nested parameters
+            const parameters = {};
+            for (const [key, value] of form.entries()) {
+                if (key.startsWith("parameters[")) {
+                    const paramKey = key.match(/\[([^\]]+)\]/)[1];
+                    parameters[paramKey] = value;
+                } else {
+                    data[key] = value;
+                }
+            }
+            data.parameters = parameters;
+
+            const response = await fetch("/train-model", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+            alert(result.message || result.error);
+        };
+    </script>
+</body>
+</html>
