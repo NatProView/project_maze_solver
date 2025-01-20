@@ -7,7 +7,7 @@ import requests
 # pip install requests 
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 # pip install flask
-# pip install requests
+# pip install requests pandas matplotlib
 
 def ellers_algorithm(width, height):
     """

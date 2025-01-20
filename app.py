@@ -8,9 +8,9 @@ from maze_solving import *
 import os, csv, time
 import pandas as pd
 # matplotlib requests flask pandas
-# torch i inne torhcowe rzeczy
+# torch i inne torhcowe rzeczy scipy
 
-register_solver("dqn", new_DqnSolver)
+register_solver("dqn", DQNSolver)
 register_solver("genetic", GeneticSolver)
 register_solver("pso", PSOSolver)
 
@@ -113,7 +113,7 @@ def solve_maze():
             return jsonify({"error": f"Model '{solver_name}' not found in '{model_type}'!"}), 404
 
         if model_type == "dqn":
-            solver = new_DqnSolver.load(model_path)
+            solver = DQNSolver.load(model_path)
             path = solver.solve(env)
         elif model_type == "genetic":
             solver, best_individual = GeneticSolver.load(model_path)
@@ -175,7 +175,7 @@ def train_model():
         mutation_rate = float(parameters.get("mutation_rate", 0.1))
 
         solver = GeneticSolver(
-            population_size=population_size, generations=generations, mutation_rate=mutation_rate
+            population_size=population_size, generations=generations, mutation_rate=mutation_rate, name=maze_name
         )
         start_time = time.time()
         best_individual = solver.train(env)
@@ -198,9 +198,9 @@ def train_model():
         batch_size = int(parameters.get("batch_size", 64))
         learning_rate = float(parameters.get("learning_rate", 0.001))
 
-        solver = new_DqnSolver(learning_rate=learning_rate)
+        solver = DQNSolver(learning_rate=learning_rate)
         start_time = time.time()
-        trained_model = solver.train(env, num_episodes=num_episodes, batch_size=batch_size)
+        trained_model = solver.train(env, num_episodes=num_episodes, batch_size=batch_size, name=maze_name)
         training_time = time.time() - start_time
         
         solver.save(f"trained_models/dqn/{model_name}.pt")
@@ -226,7 +226,8 @@ def train_model():
             max_iterations=max_iterations,
             inertia=inertia,
             cognitive_coeff=cognitive_coeff,
-            social_coeff=social_coeff
+            social_coeff=social_coeff,
+            name=maze_name
         )
         
         start_time = time.time()

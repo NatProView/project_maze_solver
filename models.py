@@ -6,6 +6,12 @@ from collections import deque
 import random
 import matplotlib.pyplot as plt
 import logging
+import os
+import matplotlib
+matplotlib.use('Agg')
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
+
 
 class MazeEnv:
     def __init__(self, grid):
@@ -13,14 +19,12 @@ class MazeEnv:
         self.n_rows, self.n_cols = len(grid), len(grid[0])
         self.start = (0, 0)
         self.goal = (self.n_rows - 1, self.n_cols - 1)
-        self.previous_distance_to_goal = None
-        self.visited = set() 
+        self.visited = set()
         self.reset()
-        
+
     def reset(self):
         self.agent_pos = self.start
-        self.visited = set([self.agent_pos])
-        self.previous_distance_to_goal = abs(self.start[0] - self.goal[0]) + abs(self.start[1] - self.goal[1])
+        self.visited = set()
         return self.agent_pos
 
     def step(self, action):
@@ -30,34 +34,39 @@ class MazeEnv:
         if 0 <= next_pos[0] < self.n_rows and 0 <= next_pos[1] < self.n_cols and self.grid[next_pos[0]][next_pos[1]] == 0:
             self.agent_pos = next_pos
 
-        current_distance = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
-        normalized_distance = current_distance / (self.n_rows + self.n_cols)
+        while not self.is_junction(self.agent_pos) and self.agent_pos != self.goal:
+            possible_moves = self.get_possible_moves(self.agent_pos)
+            if len(possible_moves) == 1:
+                move = possible_moves[0]
+                self.agent_pos = (self.agent_pos[0] + move[0], self.agent_pos[1] + move[1])
+            else:
+                break
 
-        reward = 0
-
+        distance_to_goal = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
 
         if self.agent_pos == self.goal:
-            reward = 5
+            reward = 10 
+        elif self.agent_pos not in self.visited:
+            reward = 1 - 0.01 * distance_to_goal 
         else:
-            reward -= 0.01 * normalized_distance
+            reward = -0.1 - 0.01 * distance_to_goal
 
-            reward -= 0.02
-
-            if self.agent_pos not in self.visited:
-                reward += 0.3 
-                self.visited.add(self.agent_pos)
-
-            previous_distance = self.previous_distance_to_goal
-            if current_distance < previous_distance:
-                reward += 0.2 * (previous_distance - current_distance)
-
-        if self.agent_pos in self.visited:
-            reward -= 0.1
-
-        self.previous_distance_to_goal = current_distance
+        self.visited.add(self.agent_pos)
 
         done = self.agent_pos == self.goal
         return self.agent_pos, reward, done
+
+    def get_possible_moves(self, pos):
+        moves = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+        possible_moves = []
+        for move in moves:
+            next_pos = (pos[0] + move[0], pos[1] + move[1])
+            if 0 <= next_pos[0] < self.n_rows and 0 <= next_pos[1] < self.n_cols and self.grid[next_pos[0]][next_pos[1]] == 0:
+                possible_moves.append(move)
+        return possible_moves
+
+    def is_junction(self, pos):
+        return len(self.get_possible_moves(pos)) > 1
 
 
     def render(self):
@@ -71,9 +80,16 @@ class MazeEnv:
                     print(".", end=" ")
             print()
         print()
+        
+
 
 
 class Solver(ABC):
+    def __init__(self, name):
+        self.log_dir = "logs"
+        self.name = name
+        os.makedirs(self.log_dir, exist_ok=True) 
+
     @abstractmethod
     def train(self, env):
         pass
@@ -81,9 +97,26 @@ class Solver(ABC):
     @abstractmethod
     def solve(self, env):
         pass
+    
+    def log_to_file(self, message, filename="training_log.txt"):
+        file_path = os.path.join(self.log_dir, filename)
+        with open(file_path, "a") as log_file:
+            log_file.write(message + "\n")
+        logging.info(message)
+
+    def save_plot(self, x, y, xlabel, ylabel, title, filename):
+        plt.figure()
+        plt.plot(x, y)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        file_path = os.path.join(self.log_dir, filename)
+        plt.savefig(file_path)
+        plt.close()
+        # logging.info(f"Wykres zapisany: {file_path}")
 
 class GeneticSolver(Solver):
-    def __init__(self, population_size=100, generations=500, mutation_rate=0.1, crossover_rate=0.2, elite_fraction=0.05, checkpoint_interval=250):
+    def __init__(self, population_size=100, generations=500, mutation_rate=0.1, crossover_rate=0.2, elite_fraction=0.05, checkpoint_interval=250, name="generic_genetic"):
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
@@ -91,6 +124,9 @@ class GeneticSolver(Solver):
         self.elite_fraction = elite_fraction
         self.checkpoint_interval = checkpoint_interval
         self.convergence_history = []
+        self.log_dir = "logs/genetic"
+        self.name = name
+        self.solution_found = False
 
     def generate_population(self, solution_length):
         return torch.randint(0, 4, (self.population_size, solution_length), dtype=torch.int)
@@ -162,15 +198,33 @@ class GeneticSolver(Solver):
 
             print(f"Generation {generation}: Best fitness = {best_fitness:.3f}, Mutation rate = {mutation_rate:.3f}")
 
-            if best_fitness >= 15.0:
-                print("Solution found!")
-                return ranked_population[0]
+            if best_fitness >= 15.0 and env.agent_pos == env.goal:
+                self.solution_found = True
 
+                break
+
+            message = f"Generation {generation}: Best fitness = {best_fitness:.3f}, Mutation rate = {mutation_rate:.3f}"
+            self.log_to_file(message)
+            
             if generation % self.checkpoint_interval == 0 and generation > 0:
                 print(f"Checkpoint at generation {generation}: Saving state.")
                 self.save(f"checkpoint_gen{generation}.pt", ranked_population[0])
 
-        print("No solution found.")
+        if self.solution_found:
+            print("Solution found!")
+        else:
+            print("No solution found.")
+            
+        self.save_plot(
+            x=range(len(self.convergence_history)),
+            y=self.convergence_history,
+            xlabel="Generation",
+            ylabel="Best Fitness",
+            title="Convergence of Genetic Algorithm",
+            filename=f"{self.name}.png",
+        )
+        self.visualize_convergence()
+        
         return ranked_population[0]
 
     def solve(self, env):
@@ -220,12 +274,16 @@ class GeneticSolver(Solver):
         plt.xlabel("Generation")
         plt.ylabel("Best Fitness")
         plt.title("Convergence of Genetic Algorithm")
-        plt.show()
+        filename=f"{self.name}_vis.png"
+        # plt.show()
+        file_path = os.path.join(self.log_dir, filename)
+        plt.savefig(file_path)
+        plt.close()
 
     
 
 class DQNSolver(Solver):
-    def __init__(self, state_size=2, action_size=4, gamma=0.99, epsilon=1.0, epsilon_decay=0.995, epsilon_min=0.01, learning_rate=0.001):
+    def __init__(self, state_size=2, action_size=4, gamma=0.99, epsilon=1.0, epsilon_decay=0.995, epsilon_min=0.01, learning_rate=0.001, name="generic_dqn"):
         self.state_size = state_size
         self.action_size = action_size
         self.gamma = gamma
@@ -237,6 +295,9 @@ class DQNSolver(Solver):
         self.target_dqn = self._build_model()
         self.target_dqn.load_state_dict(self.dqn.state_dict())
         self.replay_buffer = ReplayBuffer(100000)
+        self.rewards_history = []
+        self.name = name
+        self.log_dir = "logs/dqn"
 
     def _build_model(self):
         return nn.Sequential(
@@ -295,7 +356,8 @@ class DQNSolver(Solver):
                 state = next_state
                 total_reward += reward
 
-                if done:
+                if done and env.agent_pos == env.goal:
+                    print("Solution found!")
                     break
 
                 if len(self.replay_buffer) >= batch_size:
@@ -305,9 +367,24 @@ class DQNSolver(Solver):
                 self.target_dqn.load_state_dict(self.dqn.state_dict())
 
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
+            self.rewards_history.append(total_reward)
             print(f"Episode {episode}, Total Reward: {total_reward:.3f}, Epsilon: {self.epsilon:.2f}")
+        
+        self.plot_rewards()
+
         return self.dqn
             
+    def plot_rewards(self):
+        plt.figure(figsize=(10, 6))
+        plt.plot(self.rewards_history, label="Total Reward")
+        plt.xlabel("Episode")
+        plt.ylabel("Total Reward")
+        plt.title("DQN Training Rewards")
+        plt.legend()
+        file_path = os.path.join(self.log_dir, "{self.name}.png")
+        plt.savefig(file_path)
+        plt.close()
+        print(f"Rewards plot saved to {file_path}")
 
     def _replay(self, optimizer, batch_size):
         states, actions, rewards, next_states, dones = zip(*self.replay_buffer.sample(batch_size))
@@ -345,8 +422,20 @@ class DQNSolver(Solver):
 
         return path
     
+    def plot_rewards(self):
+        plt.figure(figsize=(10, 6))
+        plt.plot(self.rewards_history, label="Total Reward")
+        plt.xlabel("Episode")
+        plt.ylabel("Total Reward")
+        plt.title("DQN Training Rewards")
+        plt.legend()
+        file_path = os.path.join(self.log_dir, "dqn_rewards.png")
+        plt.savefig(file_path)
+        plt.close()
+        print(f"Rewards plot saved to {self.name}.png")
+    
 class PSOSolver(Solver):
-    def __init__(self, swarm_size=50, max_iterations=500, inertia=0.5, cognitive_coeff=1.5, social_coeff=1.5, checkpoint_interval=50):
+    def __init__(self, swarm_size=50, max_iterations=500, inertia=0.5, cognitive_coeff=1.5, social_coeff=1.5, checkpoint_interval=50, name="generic_pso"):
         self.swarm_size = swarm_size
         self.max_iterations = max_iterations
         self.inertia = inertia
@@ -354,6 +443,8 @@ class PSOSolver(Solver):
         self.social_coeff = social_coeff
         self.checkpoint_interval = checkpoint_interval
         self.convergence_history = [] 
+        self.log_dir = "logs/pso"
+        self.name = name
 
     def initialize_swarm(self, solution_length):
         positions = torch.randint(0, 4, (self.swarm_size, solution_length), dtype=torch.int)
@@ -368,6 +459,7 @@ class PSOSolver(Solver):
             _, reward, done = env.step(action.item())
             total_reward += reward
             if done:
+                total_reward += 100
                 break
         return total_reward
 
@@ -412,13 +504,15 @@ class PSOSolver(Solver):
                 if fitness > personal_best_scores[i]:
                     personal_best_scores[i] = fitness
                     personal_best_positions[i] = swarm[i].clone()
-                    stagnation_counter[i] = 0
+                    stagnation_counter[i] = 0 
                 else:
                     stagnation_counter[i] += 1
 
             reset_indices = stagnation_counter > 20
             if reset_indices.any():
-                swarm[reset_indices] = torch.randint(0, 4, (reset_indices.sum(), solution_length), dtype=torch.int)
+                print(f"Resetting {reset_indices.sum()} particles at iteration {iteration}.")
+                perturbation = torch.randint(0, 4, (reset_indices.sum(), solution_length), dtype=torch.int)
+                swarm[reset_indices] = perturbation
                 velocities[reset_indices] = torch.zeros_like(swarm[reset_indices], dtype=torch.float)
                 stagnation_counter[reset_indices] = 0
 
@@ -426,12 +520,19 @@ class PSOSolver(Solver):
             global_best_position = personal_best_positions[global_best_index].clone()
             global_best_score = personal_best_scores[global_best_index].item()
 
+            self.convergence_history.append(global_best_score)
+
             print(f"Iteration {iteration}: Best fitness = {global_best_score:.3f}, Diversity = {diversity:.3f}")
 
-            if global_best_score >= 2.0:
-                print("Solution found!")
-                break
+            if global_best_score >= 15.0: 
+                solution_path = self.build_path(env, global_best_position)
+                if solution_path[-1] == env.goal:
+                    print("Solution found and validated: Goal reached!")
+                    break
+                else:
+                    print("False positive: High fitness but did not reach goal.")
 
+        self.visualize_convergence()
         return global_best_position
 
     def solve(self, env):
@@ -481,18 +582,21 @@ class PSOSolver(Solver):
             cognitive_coeff=checkpoint['cognitive_coeff'],
             social_coeff=checkpoint['social_coeff'],
         )
-
+        
+        
     def visualize_convergence(self):
         plt.plot(self.convergence_history)
         plt.xlabel("Iteration")
         plt.ylabel("Best Fitness")
         plt.title("Convergence of PSO Algorithm")
-        plt.show()
+        filename=f"{self.name}_vis.png"
+        # plt.show()
+        file_path = os.path.join(self.log_dir, filename)
+        plt.savefig(file_path)
+        plt.close()
+        
 
         
-        
-
-    
 class ReplayBuffer:
     def __init__(self, capacity):
         self.buffer = deque(maxlen=capacity)
