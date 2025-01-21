@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import torch
 from maze_generating import *
 from models import MazeEnv, SOLVERS, register_solver, DQNSolver, GeneticSolver, PSOSolver
@@ -9,7 +9,11 @@ import os, csv, time
 import pandas as pd
 # matplotlib requests flask pandas
 # torch i inne torhcowe rzeczy scipy
-
+# TODO dodaj wizualizacje konwergencji i nagrod do stronki
+# ulepsz ewentual;nie JSa
+# dashboard popraw
+# przetrenuj modele jeszcze raz i sprawdz jak sobie radza
+# sprrobuj rozdzielic env dla roznych modeli
 register_solver("dqn", DQNSolver)
 register_solver("genetic", GeneticSolver)
 register_solver("pso", PSOSolver)
@@ -188,7 +192,8 @@ def train_model():
         return jsonify({
             "message": f"Genetic model '{model_name}' trained successfully!",
             "path": path,
-            "maze": maze.tolist()
+            "maze": maze.tolist(),
+            "metrics": metrics
         })
 
     if model_type == "dqn":
@@ -198,9 +203,9 @@ def train_model():
         batch_size = int(parameters.get("batch_size", 64))
         learning_rate = float(parameters.get("learning_rate", 0.001))
 
-        solver = DQNSolver(learning_rate=learning_rate)
+        solver = DQNSolver(learning_rate=learning_rate, name=model_name)
         start_time = time.time()
-        trained_model = solver.train(env, num_episodes=num_episodes, batch_size=batch_size, name=maze_name)
+        trained_model, metrics = solver.train(env, num_episodes=num_episodes, batch_size=batch_size)
         training_time = time.time() - start_time
         
         solver.save(f"trained_models/dqn/{model_name}.pt")
@@ -209,7 +214,8 @@ def train_model():
         return jsonify({
             "message": f"DQN model '{model_name}' trained successfully!",
             "path": path,
-            "maze": maze.tolist()
+            "maze": maze.tolist(),
+            "metrics": metrics
         })
     
     if model_type == "pso":
@@ -240,7 +246,8 @@ def train_model():
         return jsonify({
             "message": f"PSO model '{model_name}' trained successfully!",
             "path": path,
-            "maze": maze.tolist()
+            "maze": maze.tolist(),
+            "metrics": metrics
         })
 
     path_length = len(path)
@@ -268,6 +275,24 @@ def analytics_data():
         "solving_logs": solving_data,
         "training_logs": training_data
     })
+    
+    
+    
+@app.route("/get-plot", methods=["GET"])
+def get_plot():
+    model_type = request.args.get("model_type")
+    model_name = request.args.get("model_name")
+
+    if not model_type or not model_name:
+        return jsonify({"error": "Model type and name are required!"}), 400
+
+    plot_path = os.path.join("logs", model_type, f"{model_name}.png")
+    print(f"Plot Path: {plot_path}")
+    
+    if not os.path.exists(plot_path):
+        return jsonify({"error": f"Plot for model '{model_name}' not found!"}), 404
+
+    return send_file(plot_path, mimetype='image/png')
 
 if __name__ == "__main__":
     app.run(debug=True)

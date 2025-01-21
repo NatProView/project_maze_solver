@@ -1,32 +1,54 @@
-/* body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-}
-
-section {
-    margin-bottom: 20px;
-}
-
-canvas {
-    margin-top: 10px;
-} */
-
-
 body {
-    background-color: #2f313231; /* Light gray background */
+    background-color: #f8f9fa;
     font-family: Arial, sans-serif;
+    color: #343a40;
 }
 
 h1 {
     font-weight: bold;
     margin-bottom: 20px;
-    color: #343a40; /* Dark gray */
 }
 
 .card {
     border-radius: 10px;
+    margin-bottom: 20px;
 }
 
 button {
-    width: 100%;
+    border-radius: 20px;
 }
+
+
+#left-column {
+    overflow-y: auto;
+    max-height: 100vh; 
+    padding-right: 15px;
+}
+
+#maze-column {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+#maze-visualization {
+    flex: 1;
+    max-width: 50%;
+    min-height: 550px;
+}
+
+#metrics-plot-section {
+    flex: 1;
+    max-width: 50%;
+}
+
+#mazeCanvas {
+    max-width: 100%;
+    height: auto;
+}
+
+.card {
+    margin-bottom: 20px;
+}
+

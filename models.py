@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import logging
 import os
 import matplotlib
+import scipy.stats as stats
 matplotlib.use('Agg')
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -97,6 +98,16 @@ class Solver(ABC):
     @abstractmethod
     def solve(self, env):
         pass
+    
+    def calculate_metrics(self, values):
+        mean_value = np.mean(values)
+        std_dev = np.std(values)
+        skewness = stats.skew(values)
+        return {
+            "mean": mean_value,
+            "std_dev": std_dev,
+            "skewness": skewness,
+        }
     
     def log_to_file(self, message, filename="training_log.txt"):
         file_path = os.path.join(self.log_dir, filename)
@@ -224,14 +235,16 @@ class GeneticSolver(Solver):
             filename=f"{self.name}.png",
         )
         self.visualize_convergence()
-        
-        return ranked_population[0]
+        metrics = self.calculate_metrics(self.convergence_history)
+        self.log_to_file(f"Metrics: {metrics}", filename=f"{self.name}_metrics.txt")
+        return ranked_population[0], metrics
 
     def solve(self, env):
         best_individual = self.train(env)
         path = []
         env.reset()
         for action in best_individual:
+            print(f"Action shape: {action.shape}, Action: {action}")
             state, _, done = env.step(action.item())
             path.append(state)
             if done:
@@ -371,20 +384,12 @@ class DQNSolver(Solver):
             print(f"Episode {episode}, Total Reward: {total_reward:.3f}, Epsilon: {self.epsilon:.2f}")
         
         self.plot_rewards()
-
-        return self.dqn
+        
+        metrics = self.calculate_metrics(self.rewards_history)
+        self.log_to_file(f"Metrics: {metrics}", filename=f"{self.name}_metrics.txt")
+        
+        return self.dqn, metrics
             
-    def plot_rewards(self):
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.rewards_history, label="Total Reward")
-        plt.xlabel("Episode")
-        plt.ylabel("Total Reward")
-        plt.title("DQN Training Rewards")
-        plt.legend()
-        file_path = os.path.join(self.log_dir, "{self.name}.png")
-        plt.savefig(file_path)
-        plt.close()
-        print(f"Rewards plot saved to {file_path}")
 
     def _replay(self, optimizer, batch_size):
         states, actions, rewards, next_states, dones = zip(*self.replay_buffer.sample(batch_size))
@@ -429,7 +434,7 @@ class DQNSolver(Solver):
         plt.ylabel("Total Reward")
         plt.title("DQN Training Rewards")
         plt.legend()
-        file_path = os.path.join(self.log_dir, "dqn_rewards.png")
+        file_path = os.path.join(self.log_dir, f"{self.name}.png")
         plt.savefig(file_path)
         plt.close()
         print(f"Rewards plot saved to {self.name}.png")
@@ -532,8 +537,11 @@ class PSOSolver(Solver):
                 else:
                     print("False positive: High fitness but did not reach goal.")
 
+        metrics = self.calculate_metrics(self.convergence_history)
+        self.log_to_file(f"Metrics: {metrics}", filename=f"{self.name}_metrics.txt")
+
         self.visualize_convergence()
-        return global_best_position
+        return global_best_position, metrics
 
     def solve(self, env):
         best_solution = self.train(env)

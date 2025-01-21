@@ -183,6 +183,15 @@ function updateModelParameters() {
 
 updateModelParameters();
 
+function mergePathIntoMaze(maze, path) {
+    const mazeWithPath = maze.map(row => [...row]);
+
+    path.forEach(([r, c]) => {
+        mazeWithPath[r][c] = 2; 
+    });
+
+    return mazeWithPath;
+}
 
 document.getElementById("train-model-form").onsubmit = async (event) => {
     event.preventDefault();
@@ -202,10 +211,30 @@ document.getElementById("train-model-form").onsubmit = async (event) => {
 
     const response = await postData("/train-model", data);
 
-    if (response.maze && response.path) {
-        const gridWithPath = mergePathIntoMaze(response.maze, response.path);
-        drawGrid(gridWithPath);
-    }
+    if (response.message) {
+        alert(response.message);
+        
+        // Update the maze visualization after training
+        if (response.maze && response.path) {
+            console.log("Received path:", response.path);
+            const gridWithPath = mergePathIntoMaze(response.maze, response.path); // Merge the path into the maze
+            drawGrid(gridWithPath); // Draw the maze with the path
+        }
+        // Fetch and display the plot
+        const plotUrl = `/get-plot?model_type=${data.model_type}&model_name=${data.model_name}`;
+        const plotImage = document.getElementById("convergence-plot");
+        plotImage.src = plotUrl;
+        plotImage.style.display = "block"; // Ensure the image is visible
 
-    alert(response.message || response.error);
+        // Display metrics
+        const metrics = response.metrics;
+        if (metrics) {
+            document.getElementById("metrics-mean").textContent = metrics.mean.toFixed(3);
+            document.getElementById("metrics-std-dev").textContent = metrics.std_dev.toFixed(3);
+            document.getElementById("metrics-skewness").textContent = metrics.skewness.toFixed(3);
+            document.getElementById("training-metrics").style.display = "block"; // Show the metrics section
+        }
+    } else {
+        alert(response.error);
+    }
 };
