@@ -1,114 +1,175 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Model Training Guide</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 20px;
-            background-color: #f9f9f9;
-            color: #333;
-        }
-        h1 {
-            text-align: center;
-            color: #0056b3;
-        }
-        h2 {
-            color: #0056b3;
-            border-bottom: 2px solid #0056b3;
-            padding-bottom: 5px;
-        }
-        p {
-            margin: 10px 0;
-        }
-        ul {
-            margin: 10px 0 20px 20px;
-        }
-        li {
-            margin-bottom: 10px;
-        }
-        .note {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffeeba;
-            padding: 10px;
-            margin: 20px 0;
-        }
-    </style>
+    <title>Guide - AI Maze Solvers</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Guide to Tuning Model Training Parameters</h1>
-    <p>This guide provides recommendations for tuning parameters of the three AI models (DQN, Genetic Algorithm, and Particle Swarm Optimization) depending on the maze size.</p>
-    
-    <h2>1. Deep Q-Learning (DQN)</h2>
-    <p><strong>Key Parameters:</strong></p>
-    <ul>
-        <li><strong>Learning Rate:</strong> Smaller values (e.g., 0.001) for larger mazes to ensure stable convergence.</li>
-        <li><strong>Number of Episodes:</strong> Increase episodes proportionally to the maze size. E.g.:
-            <ul>
-                <li>Small mazes (e.g., 5x5): 500 episodes</li>
-                <li>Medium mazes (e.g., 10x10): 1000 episodes</li>
-                <li>Large mazes (e.g., 20x20): 2000+ episodes</li>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Maze Solver</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/dashboard">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/guide">Guide</a>
+                </li>
             </ul>
-        </li>
-        <li><strong>Batch Size:</strong> 64 for smaller mazes, up to 128 for larger ones to leverage more experience samples.</li>
-        <li><strong>Replay Buffer Size:</strong> Larger mazes benefit from larger buffers (e.g., 50,000+).</li>
-        <li><strong>Epsilon Decay:</strong> Slower decay (e.g., 0.995) for larger mazes to allow more exploration.</li>
-    </ul>
-    
-    <h2>2. Genetic Algorithm (GA)</h2>
-    <p><strong>Key Parameters:</strong></p>
-    <ul>
-        <li><strong>Population Size:</strong> Increase for larger mazes. E.g.:
-            <ul>
-                <li>Small mazes: 50-100</li>
-                <li>Medium mazes: 100-200</li>
-                <li>Large mazes: 200-500</li>
-            </ul>
-        </li>
-        <li><strong>Number of Generations:</strong> Larger mazes require more generations. E.g.:
-            <ul>
-                <li>Small mazes: 500 generations</li>
-                <li>Medium mazes: 1000 generations</li>
-                <li>Large mazes: 2000+ generations</li>
-            </ul>
-        </li>
-        <li><strong>Mutation Rate:</strong> Start with 0.1 and adjust based on performance. Lower values (0.05) for fine-tuning larger mazes.</li>
-        <li><strong>Crossover Rate:</strong> High values (0.8-0.9) for larger mazes to promote diversity.</li>
-    </ul>
-    <div class="note">
-        <strong>Note:</strong> For larger mazes, ensure sufficient computational resources, as both population size and generations scale computational cost.
+        </div>
     </div>
-    
-    <h2>3. Particle Swarm Optimization (PSO)</h2>
-    <p><strong>Key Parameters:</strong></p>
-    <ul>
-        <li><strong>Swarm Size:</strong> Proportional to maze size. E.g.:
+</nav>
+
+<div class="container mt-4 mb-5">
+    <h1 class="text-center mb-4">Przewodnik do DQN, Algorytmu Genetycznego i PSO</h1>
+    <h2 class="text-center mb-4">Disclaimer: przeredagowanie i wartosci z pomoca ChatGPT</h2>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <p>
+                Poniżej znajdziesz ogólne zasady i przedziały wartości przy doborze hiperparametrów dla 
+                <strong>DQN (lub Double DQN)</strong>, <strong>Algorytmu Genetycznego</strong> oraz 
+                <strong>PSO (Particle Swarm Optimization)</strong>. Są to jedynie wskazówki – w praktyce
+                najlepiej przetestować różne warianty, obserwować krzywe konwergencji i dostosowywać parametry
+                zgodnie z wynikami.
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="card-title">1. (Double) DQN</h2>
+            <hr/>
+            <p>
+                <strong>Kluczowe parametry:</strong> współczynnik uczenia (learning rate), epsilon (dla eksploracji),
+                replay buffer, sposób aktualizacji sieci docelowej.
+            </p>
+
+            <h3>1.1. Ustawienia bazowe (niewielkie labirynty ~10×10)</h3>
             <ul>
-                <li>Small mazes: 20-50 particles</li>
-                <li>Medium mazes: 50-100 particles</li>
-                <li>Large mazes: 100-200 particles</li>
+                <li><strong>Learning Rate</strong> (α): zwykle w przedziale <code>0.0001 &leq α &leq 0.001</code>.</li>
+                <li><strong>Epsilon decay</strong>: start ~1.0, minimalne ~0.01–0.05. Decay ~0.995–0.998 w zależności od długości treningu.</li>
+                <li><strong>Replay Buffer</strong>: 10k–50k próbek (zależnie od dostępnej pamięci).</li>
+                <li><strong>Target Update</strong>: co 10–50 epizodów (hard) lub soft update (τ ≈ 0.01) w każdej iteracji.</li>
             </ul>
-        </li>
-        <li><strong>Iterations:</strong> Increase iterations for larger mazes. E.g.:
+
+            <h3>1.2. Większe labirynty (20×20 i więcej)</h3>
             <ul>
-                <li>Small mazes: 200-500 iterations</li>
-                <li>Medium mazes: 500-1000 iterations</li>
-                <li>Large mazes: 1000-2000+ iterations</li>
+                <li>Zwiększ <strong>Replay Buffer</strong> (50k–100k, a nawet 200k+ przy zasobach pamięci).</li>
+                <li>Możesz zwiększyć limit kroków na epizod (np. 200–300).</li>
+                <li>Zalecane <strong>Double DQN</strong>, by uniknąć przeszacowania wartości Q.</li>
+                <li><strong>Wolniejszy spadek epsilon</strong> (np. 0.999) i dłuższy trening (np. 1000 epizodów).</li>
             </ul>
-        </li>
-        <li><strong>Inertia Weight:</strong> Start with 0.9 and gradually reduce to 0.4 during training.</li>
-        <li><strong>Cognitive and Social Factors (c1, c2):</strong> Balanced values like 1.5 ensure exploration and exploitation.</li>
-    </ul>
-    
-    <h2>General Tips</h2>
-    <ul>
-        <li>Monitor training performance and adjust parameters dynamically based on progress.</li>
-        <li>Use logging and visualization to track learning curves and identify bottlenecks.</li>
-        <li>For large mazes, consider parallelizing computations if resources allow.</li>
-    </ul>
+
+            <h3>1.3. Stabilizacja i debug</h3>
+            <ul>
+                <li>Jeśli występują duże wahania nagrody, <strong>obniż learning rate</strong>, rozważ priorytetyzowany replay.</li>
+                <li>Double DQN + <strong>soft update</strong> (tau=0.01) pomaga uniknąć gwałtownych skoków.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="card-title">2. Algorytm Genetyczny (GA)</h2>
+            <hr/>
+            <p>
+                <strong>Kluczowe parametry:</strong> rozmiar populacji, liczba pokoleń, wskaźnik mutacji (mutation_rate),
+                wskaźnik krzyżowania (crossover_rate).
+            </p>
+
+            <h3>2.1. Ustawienia bazowe</h3>
+            <ul>
+                <li><strong>Rozmiar populacji (P)</strong>: 50–200 dla małych/średnich labiryntów.</li>
+                <li><strong>Liczba pokoleń (G)</strong>: 200–1000 w zależności od rozmiaru i złożoności.</li>
+                <li><strong>Długość chromosomu</strong>: często <code>2*(rows + cols)</code> lub do <code>rows * cols</code>.</li>
+                <li><strong>Mutation Rate (µ)</strong>: 0.01–0.2; większe wartości przy długich chromosomach lub małych populacjach.</li>
+                <li><strong>Crossover Rate (c)</strong>: 0.1–0.7 (zwykle 0.2–0.5).</li>
+            </ul>
+
+            <h3>2.2. Większe labirynty</h3>
+            <ul>
+                <li>Populacja 200–400, pokolenia do 1000–2000.</li>
+                <li>Mutacja może być adaptacyjna (np. start ~0.1, spada do 0.02).</li>
+                <li>Selekcja turniejowa (rozmiar turnieju 3–5) i elityzm (2–5% najlepszych) poprawiają stabilność.</li>
+            </ul>
+
+            <h3>2.3. Zasady praktyczne</h3>
+            <ul>
+                <li>Jeśli fitness stoi w miejscu – zwiększ mutację lub populację.</li>
+                <li>Jeśli fitness skacze chaotycznie – zmniejsz mutację, rozważ lepszą selekcję (turniej).  
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="card-title">3. PSO (Particle Swarm Optimization)</h2>
+            <hr/>
+            <p>
+                <strong>Kluczowe parametry:</strong> rozmiar roju (swarm_size), liczba iteracji, inercja (w), współczynniki kognitywny i społeczny (c1, c2).
+            </p>
+
+            <h3>3.1. Parametry bazowe</h3>
+            <ul>
+                <li><strong>Swarm Size</strong>: 30–50 dla mniejszych problemów, do 80–100 przy większych.</li>
+                <li><strong>Max Iterations</strong>: 300–1000 zwykle.</li>
+                <li><strong>Inertia (ω)</strong>: 0.4–0.9 (często malejąca w czasie).</li>
+                <li><strong>c1 (cognitive) i c2 (social)</strong>: 1.0–2.5 (np. 1.5 i 1.5).</li>
+            </ul>
+
+            <h3>3.2. Większe labirynty</h3>
+            <ul>
+                <li>Swarm 80–150, iteracje 1000–2000.</li>
+                <li>Możesz wprowadzać mechanizmy <strong>resetu cząstek</strong>, gdy gbest nie rośnie.</li>
+                <li>Możliwość adaptacyjnej inercji (wysoka na start, niska przy zbieżaniu).</li>
+            </ul>
+
+            <h3>3.3. Zasady praktyczne</h3>
+            <ul>
+                <li>Jeśli rozwiązanie zbyt szybko się ustala, a nie jest dobre – zwiększ liczbę iteracji, inercję lub c1 (eksploracja).</li>
+                <li>Jeśli ruch cząstek jest chaotyczny – zmniejsz inercję, c1, c2.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="card-title">Podsumowanie</h2>
+            <p>
+                Dobór parametrów do labiryntu zależy głównie od jego rozmiaru i złożoności (liczba skrzyżowań, ślepych zaułków).
+                Zacznij od wartości bazowych:
+            </p>
+            <ul>
+                <li>DQN: LR ~0.001 lub 0.0005, epsilon decay ~0.995–0.998, 500–1000 epizodów, Double DQN + soft update dla stabilności.</li>
+                <li>GA: Populacja 50–200, mutacja 0.05–0.1, 300–500 pokoleń (mały labirynt) lub więcej (średni/duży).</li>
+                <li>PSO: 30–50 cząstek, 300–500 iteracji (małe), inercja ~0.7, c1=c2=1.5. Dla większego roju rosną iteracje.</li>
+            </ul>
+            <p>
+                Następnie obserwuj <em>krzywe konwergencji</em> (lub <em>reward</em> w DQN). 
+                Gdy algorytm nie poprawia wyniku – zwiększ eksplorację (mutacja, c1, wolniejszy epsilon-decay), 
+                a gdy jest chaotyczny – zmniejsz eksplorację (obniż mutację, c1, LR). 
+                Dzięki tym korektom znajdziesz stabilne i efektywne ustawienia dla swojego zadania.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

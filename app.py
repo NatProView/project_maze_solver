@@ -1,23 +1,23 @@
 from flask import Flask, render_template, request, jsonify, send_file
 import torch
-from maze_generating import *
-from models import MazeEnv, SOLVERS, register_solver, DQNSolver, GeneticSolver, PSOSolver
-from models_dqn import MazeEnv as DqnMazeEnv
-from models_dqn import DQNSolver as new_DqnSolver
-from maze_solving import *
-import os, csv, time
+import os
+import csv
+import time
 import pandas as pd
-# matplotlib requests flask pandas
-# torch i inne torhcowe rzeczy scipy
-# TODO dodaj wizualizacje konwergencji i nagrod do stronki
-# ulepsz ewentual;nie JSa
-# dashboard popraw
-# przetrenuj modele jeszcze raz i sprawdz jak sobie radza
-# sprrobuj rozdzielic env dla roznych modeli
+
+from maze_generating import generate_maze, load_maze, save_maze
+from maze_solving import bfs, a_star
+
+from models import *
+
 register_solver("dqn", DQNSolver)
 register_solver("genetic", GeneticSolver)
 register_solver("pso", PSOSolver)
+register_solver("double_dqn", DoubleDQNSolver)
 
+# TODO wytrenuj
+# TODO dashboard i statystyki
+# TODO przeanalizuj jeszcze raz i wyciagnij wnioski
 app = Flask(__name__)
 
 def log_results_to_csv(file_path, headers, data):
@@ -60,7 +60,6 @@ def get_models():
     models = [f for f in os.listdir(base_dir) if f.endswith(".pt")]
     return jsonify({"models": models})
 
-
 @app.route("/generate-maze", methods=["POST"])
 def generate_maze_api():
     data = request.json
@@ -73,7 +72,6 @@ def generate_maze_api():
     torch.save(maze, maze_path)
 
     return jsonify({"message": f"Maze '{name}' generated successfully!", "maze": maze.tolist()})
-
 
 @app.route("/design-maze", methods=["POST"])
 def design_maze():
@@ -99,10 +97,11 @@ def solve_maze():
         return jsonify({"error": f"Maze '{maze_name}' not found!"}), 404
     maze = load_maze(maze_path)
     maze_size = len(maze)
-    env = MazeEnv(maze.tolist())
+
     solving_time = None
     path = None
     start_time = time.time()
+
     if solver_type == "not-ai":
         if solver_name == "bfs":
             path = bfs(maze)
@@ -117,21 +116,33 @@ def solve_maze():
             return jsonify({"error": f"Model '{solver_name}' not found in '{model_type}'!"}), 404
 
         if model_type == "dqn":
+            env = MazeEnvDQN(maze.tolist())
             solver = DQNSolver.load(model_path)
             path = solver.solve(env)
+            
+        elif model_type == "double_dqn":
+            env = MazeEnvDQN(maze.tolist())
+            solver = DoubleDQNSolver.load(model_path)
+            path = solver.solve(env)
+            
         elif model_type == "genetic":
+            env = MazeEnvGenetic(maze.tolist())
             solver, best_individual = GeneticSolver.load(model_path)
             path = solver.solve_with_individual(env, best_individual)
+
         elif model_type == "pso":
-            solver = PSOSolver().load(model_path)
+            env = MazeEnvPSO(maze.tolist())
+            solver = PSOSolver.load(model_path)
             path = solver.solve(env)
+
         else:
             return jsonify({"error": f"Model type '{model_type}' is not recognized!"}), 400
     else:
         return jsonify({"error": "Invalid solver type!"}), 400
     
     solving_time = time.time() - start_time
-    path_length = len(path)
+    path_length = len(path) if path else 0
+
     log_results_to_csv(
         "solving_logs.csv",
         ["Algorithm", "Maze Size", "Solving Time (s)", "Path Length"],
@@ -143,12 +154,9 @@ def solve_maze():
         "path": path
     })
 
-
 @app.route("/list-solvers", methods=["GET"])
 def list_solvers():
     return jsonify({"solvers": list(SOLVERS.keys())})
-
-
 
 @app.route("/train-model-page")
 def train_model_page():
@@ -158,68 +166,133 @@ def train_model_page():
 def guide():
     return render_template("guide.html")
 
+
 @app.route("/train-model", methods=["POST"])
 def train_model():
     data = request.json
     model_type = data.get("model_type")
     model_name = data.get("model_name")
     maze_name = data.get("maze_name")
-    parameters = data.get("parameters")
-    
-    maze = load_maze(f"mazes/{maze_name}.pt")
+    parameters = data.get("parameters", {})
+
+    if not (model_type and model_name and maze_name):
+        return jsonify({"error": "model_type, model_name, and maze_name are required"}), 400
+
+    maze_path = f"mazes/{maze_name}.pt"
+    if not os.path.exists(maze_path):
+        return jsonify({"error": f"Maze '{maze_name}' not found!"}), 404
+
+    maze = load_maze(maze_path)
     maze_size = len(maze)
     training_time = None
+    path = None
+    metrics = {}
+
+    start_time = time.time()
 
     if model_type == "genetic":
-
-        env = MazeEnv(maze.tolist())
+        env = MazeEnvGenetic(maze.tolist())
 
         population_size = int(parameters.get("population_size", 100))
         generations = int(parameters.get("generations", 500))
         mutation_rate = float(parameters.get("mutation_rate", 0.1))
+        crossover_rate = float(parameters.get("crossover_rate", 0.2))
+        elite_fraction = float(parameters.get("elite_fraction", 0.05))
 
         solver = GeneticSolver(
-            population_size=population_size, generations=generations, mutation_rate=mutation_rate, name=maze_name
+            population_size=population_size,
+            generations=generations,
+            mutation_rate=mutation_rate,
+            crossover_rate=crossover_rate,
+            elite_fraction=elite_fraction,
+            name=model_name
         )
-        start_time = time.time()
-        best_individual = solver.train(env)
+        best_individual, metrics = solver.train(env)
         training_time = time.time() - start_time
-        
 
-        solver.save(f"trained_models/genetic/{model_name}.pt", best_individual)
-        path = solver.solve(env)
-        
-        return jsonify({
-            "message": f"Genetic model '{model_name}' trained successfully!",
-            "path": path,
-            "maze": maze.tolist(),
-            "metrics": metrics
-        })
+        save_path = f"trained_models/genetic/{model_name}.pt"
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        solver.save(save_path)
 
-    if model_type == "dqn":
-        env = MazeEnv(maze.tolist())
+        path = solver.solve_with_individual(env, best_individual)
+
+    elif model_type == "dqn":
+        env = MazeEnvDQN(maze.tolist())
 
         num_episodes = int(parameters.get("num_episodes", 500))
         batch_size = int(parameters.get("batch_size", 64))
         learning_rate = float(parameters.get("learning_rate", 0.001))
-
-        solver = DQNSolver(learning_rate=learning_rate, name=model_name)
-        start_time = time.time()
-        trained_model, metrics = solver.train(env, num_episodes=num_episodes, batch_size=batch_size)
+        gamma = float(parameters.get("gamma", 0.99))
+        epsilon_decay = float(parameters.get("epsilon_decay", 0.995))
+        epsilon_min = float(parameters.get("epsilon_min", 0.01))
+        replay_buffer_size = int(parameters.get("replay_buffer_size", 100000))
+        max_steps = int(parameters.get("max_steps", 100))
+    
+        solver = DQNSolver(
+            gamma=gamma,
+            epsilon_decay=epsilon_decay,
+            epsilon_min=epsilon_min,
+            learning_rate=learning_rate,
+            replay_buffer_size=replay_buffer_size,
+            name=model_name
+        )
+        _, metrics = solver.train(env, num_episodes=num_episodes, batch_size=batch_size, max_steps=max_steps)
         training_time = time.time() - start_time
-        
-        solver.save(f"trained_models/dqn/{model_name}.pt")
+
+        save_path = f"trained_models/dqn/{model_name}.pt"
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        solver.save(save_path)
+
         path = solver.solve(env)
         
+    elif model_type == "double_dqn":
+        env = MazeEnvDQN(maze.tolist())
+
+        num_episodes = int(parameters.get("num_episodes", 500))
+        batch_size = int(parameters.get("batch_size", 64))
+        learning_rate = float(parameters.get("learning_rate", 0.0005))
+        gamma = float(parameters.get("gamma", 0.99))
+        epsilon_decay = float(parameters.get("epsilon_decay", 0.995))
+        epsilon_min = float(parameters.get("epsilon_min", 0.01))
+        replay_buffer_size = int(parameters.get("replay_buffer_size", 100000))
+        tau = float(parameters.get("tau", 0.01))
+        max_steps = int(parameters.get("max_steps", 100))
+
+        solver = DoubleDQNSolver(
+            gamma=gamma,
+            epsilon_decay=epsilon_decay,
+            epsilon_min=epsilon_min,
+            learning_rate=learning_rate,
+            replay_buffer_size=replay_buffer_size,
+            tau=tau,
+            name=model_name
+        )
+
+        start_time = time.time()
+        _, metrics = solver.train(env, num_episodes=num_episodes, batch_size=batch_size)
+        training_time = time.time() - start_time
+
+        save_path = f"trained_models/double_dqn/{model_name}.pt"
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        solver.save(save_path)
+
+        path = solver.solve(env)
+
+        path_length = len(path)
+        log_results_to_csv(
+            "training_logs.csv",
+            ["Algorithm", "Maze Size", "Training Time (s)", "Path Length"],
+            [model_type, maze_size, round(training_time, 2), path_length]
+        )
         return jsonify({
-            "message": f"DQN model '{model_name}' trained successfully!",
+            "message": f"Double DQN model '{model_name}' trained successfully!",
             "path": path,
             "maze": maze.tolist(),
             "metrics": metrics
         })
-    
-    if model_type == "pso":
-        env = MazeEnv(maze.tolist())
+
+    elif model_type == "pso":
+        env = MazeEnvPSO(maze.tolist())
 
         swarm_size = int(parameters.get("swarm_size", 50))
         max_iterations = int(parameters.get("max_iterations", 500))
@@ -233,31 +306,35 @@ def train_model():
             inertia=inertia,
             cognitive_coeff=cognitive_coeff,
             social_coeff=social_coeff,
-            name=maze_name
+            name=model_name
         )
-        
-        start_time = time.time()
-        best_individual = solver.train(env)
+        best_solution, metrics = solver.train(env)
         training_time = time.time() - start_time
-        
-        solver.save(f"trained_models/pso/{model_name}.pt", best_individual)
+
+        save_path = f"trained_models/pso/{model_name}.pt"
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        solver.save(save_path)
+
         path = solver.solve(env)
 
-        return jsonify({
-            "message": f"PSO model '{model_name}' trained successfully!",
-            "path": path,
-            "maze": maze.tolist(),
-            "metrics": metrics
-        })
+    else:
+        return jsonify({"error": "Invalid model type or parameters!"}), 400
 
-    path_length = len(path)
+    path_length = len(path) if path else 0
+
     log_results_to_csv(
         "training_logs.csv",
         ["Algorithm", "Maze Size", "Training Time (s)", "Path Length"],
         [model_type, maze_size, round(training_time, 2), path_length]
     )
-    print(f"Do loga: {[model_type, maze_size, round(training_time, 2), path_length]}")
-    return jsonify({"error": "Invalid model type or parameters!"}), 400
+    print(f"Training log: {[model_type, maze_size, round(training_time, 2), path_length]}")
+
+    return jsonify({
+        "message": f"Model '{model_name}' of type '{model_type}' trained successfully!",
+        "path": path,
+        "maze": maze.tolist(),
+        "metrics": metrics
+    })
 
 @app.route("/dashboard")
 def dashboard():
@@ -268,16 +345,19 @@ def analytics_data():
     solving_logs_path = "solving_logs.csv"
     training_logs_path = "training_logs.csv"
 
-    solving_data = pd.read_csv(solving_logs_path).to_dict(orient="records") if os.path.exists(solving_logs_path) else []
-    training_data = pd.read_csv(training_logs_path).to_dict(orient="records") if os.path.exists(training_logs_path) else []
+    solving_data = []
+    training_data = []
+
+    if os.path.exists(solving_logs_path):
+        solving_data = pd.read_csv(solving_logs_path).to_dict(orient="records")
+    if os.path.exists(training_logs_path):
+        training_data = pd.read_csv(training_logs_path).to_dict(orient="records")
 
     return jsonify({
         "solving_logs": solving_data,
         "training_logs": training_data
     })
-    
-    
-    
+
 @app.route("/get-plot", methods=["GET"])
 def get_plot():
     model_type = request.args.get("model_type")
