@@ -1,34 +1,25 @@
-name: Build PDF from Markdown
+name: Build Documentation PDF
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    paths:
+      - 'README.md'
 
 jobs:
-  convert-markdown-to-pdf:
+  build-pdf:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install Pandoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pandoc
+      - name: Convert README.md to PDF
+        uses: mkrakowitzer/actions-makepdfs@master
+        with:
+          markdown_dir: README.md
+          output_dir: generated-pdf
 
-      - name: Install LaTeX
-        run: |
-          sudo apt-get install -y texlive-latex-base texlive-latex-extra texlive-fonts-recommended
-
-      - name: Convert .md to PDF
-        run: |
-          pandoc README.md --pdf-engine=xelatex -o documentation.pdf
-
-      - name: Upload PDF artifact
+      - name: Upload PDF
         uses: actions/upload-artifact@v3
         with:
           name: documentation-pdf
-          path: documentation.pdf
+          path: generated-pdf
