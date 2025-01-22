@@ -100,8 +100,8 @@ WARNING: This is a development server. Do not use it in a production deployment.
 ## Generowanie labiryntu
 W sekcji `Generate Maze` podaj wymiary labiryntu oraz jego nazwę. 
 
-[!NOTE]  
-Uwaga: generator może nie wygenerować labiryntu powyżej pewnej złożoności (ok. 120x120) ze względu na rekursywną specyfikę aktualnej implementacji generatora.
+> [!NOTE]  
+> Uwaga: generator może nie wygenerować labiryntu powyżej pewnej złożoności (ok. 120x120) ze względu na rekursywną specyfikę aktualnej implementacji generatora.
 ![Generated Maze Example](documentation/generate_maze.png)
 ## Szczegóły Techniczne
 Struktura projektu wygląda następująco
