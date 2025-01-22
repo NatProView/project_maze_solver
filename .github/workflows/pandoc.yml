@@ -1,26 +1,35 @@
-name: Create PDF
+name: Build Documentation
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  build-pdf:
+  build-docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Convert README.md to PDF
-        uses: mkrakowitzer/actions-makepdfs@v1.3
-        with:
-          markdown_dir: README.md
-          output_dir: generated-pdf
+      - name: Set up LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-recommended
 
-      - name: Upload PDF
+      - name: Install Pandoc
+        run: |
+          sudo apt-get install -y pandoc
+
+      - name: Build documentation
+        run: |
+          pandoc README.md --pdf-engine=xelatex -o documentation.pdf
+
+      - name: Upload generated PDF
         uses: actions/upload-artifact@v3
         with:
           name: documentation-pdf
-          path: generated-pdf
+          path: documentation.pdf
