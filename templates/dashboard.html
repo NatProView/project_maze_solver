@@ -12,7 +12,6 @@
     <div class="container my-4">
         <h1 class="text-center">Maze Analytics Dashboard</h1>
 
-        <!-- Dropdown for selecting analytics -->
         <div class="mb-4">
             <label for="analytics-type" class="form-label">Select Analytics Type:</label>
             <select id="analytics-type" class="form-select">
@@ -22,7 +21,12 @@
             </select>
         </div>
 
-        <!-- Chart container -->
+        <div id="maze-size-container" class="mb-4" style="display: none;">
+            <label for="maze-size-select" class="form-label">Select Maze Size:</label>
+            <select id="maze-size-select" class="form-select">
+            </select>
+        </div>
+
         <canvas id="analyticsChart" class="my-4"></canvas>
     </div>
     <script src="/static/dashboard.js"></script>

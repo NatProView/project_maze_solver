@@ -16,6 +16,8 @@ matplotlib.use('Agg')
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
+# TODO moze pomoc is junction genetycznym i pso, tylko decyzje na skrzyzowaniach
+
 # ==============================================================================
 #                             MAZE ENVIRONMENTS
 # ==============================================================================
@@ -106,7 +108,21 @@ class MazeEnvGenetic:
     def reset(self):
         self.agent_pos = self.start
         self.visited = set([self.agent_pos])
+        self.prev_distance = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
         return self.agent_pos
+
+    def get_possible_moves(self, pos):
+        moves = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+        possible_moves = []
+        for move in moves:
+            nx = pos[0] + move[0]
+            ny = pos[1] + move[1]
+            if 0 <= nx < self.n_rows and 0 <= ny < self.n_cols and self.grid[nx][ny] == 0:
+                possible_moves.append(move)
+        return possible_moves
+
+    def is_junction(self, pos):
+        return len(self.get_possible_moves(pos)) > 1
 
     def step(self, action):
         moves = [(0, -1), (-1, 0), (0, 1), (1, 0)]
@@ -114,30 +130,37 @@ class MazeEnvGenetic:
         next_pos = (self.agent_pos[0] + dx, self.agent_pos[1] + dy)
 
         distance_before = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
-
         if (0 <= next_pos[0] < self.n_rows and
             0 <= next_pos[1] < self.n_cols and
             self.grid[next_pos[0]][next_pos[1]] == 0):
             self.agent_pos = next_pos
 
+        while not self.is_junction(self.agent_pos) and self.agent_pos != self.goal:
+            possible_moves = self.get_possible_moves(self.agent_pos)
+            if len(possible_moves) == 1:
+                move = possible_moves[0]
+                self.agent_pos = (self.agent_pos[0] + move[0],
+                                  self.agent_pos[1] + move[1])
+            else:
+                break
+
         distance_after = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
 
+        done = False
         if self.agent_pos == self.goal:
-            reward = 10.0
+            reward = 20.0
             done = True
         else:
-            done = False
+            reward = 0.0
             if self.agent_pos in self.visited:
-                reward = -0.2
-            else:
-                reward = 0.0
-
+                reward -= 1.0
             if distance_after < distance_before:
-                reward += 0.1
+                reward += 0.3
             else:
                 reward -= 0.1
 
         self.visited.add(self.agent_pos)
+        self.prev_distance = distance_after
         return self.agent_pos, reward, done
 
     def render(self):
@@ -153,6 +176,7 @@ class MazeEnvGenetic:
         print()
 
 
+
 class MazeEnvPSO:
     def __init__(self, grid):
         self.grid = grid
@@ -165,7 +189,21 @@ class MazeEnvPSO:
     def reset(self):
         self.agent_pos = self.start
         self.visited = set([self.agent_pos])
+        self.prev_distance = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
         return self.agent_pos
+
+    def get_possible_moves(self, pos):
+        moves = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+        possible_moves = []
+        for move in moves:
+            nx = pos[0] + move[0]
+            ny = pos[1] + move[1]
+            if 0 <= nx < self.n_rows and 0 <= ny < self.n_cols and self.grid[nx][ny] == 0:
+                possible_moves.append(move)
+        return possible_moves
+
+    def is_junction(self, pos):
+        return len(self.get_possible_moves(pos)) > 1
 
     def step(self, action):
         moves = [(0, -1), (-1, 0), (0, 1), (1, 0)]
@@ -177,20 +215,33 @@ class MazeEnvPSO:
             self.grid[next_pos[0]][next_pos[1]] == 0):
             self.agent_pos = next_pos
 
+        while not self.is_junction(self.agent_pos) and self.agent_pos != self.goal:
+            possible_moves = self.get_possible_moves(self.agent_pos)
+            if len(possible_moves) == 1:
+                move = possible_moves[0]
+                self.agent_pos = (self.agent_pos[0] + move[0],
+                                  self.agent_pos[1] + move[1])
+            else:
+                break
+
         done = False
         distance_to_goal = abs(self.agent_pos[0] - self.goal[0]) + abs(self.agent_pos[1] - self.goal[1])
 
+        reward = 0.0
         if self.agent_pos == self.goal:
-            reward = 50.0 
+            reward += 50.0
             done = True
         else:
             if self.agent_pos in self.visited:
-                reward = -1.0
-            else:
-                reward = 0.0
-            reward -= 0.01 * distance_to_goal
+                reward -= 1.0
+
+            if distance_to_goal < self.prev_distance:
+                reward += 0.2
+            elif distance_to_goal > self.prev_distance:
+                reward -= 0.1
 
         self.visited.add(self.agent_pos)
+        self.prev_distance = distance_to_goal
         return self.agent_pos, reward, done
 
     def render(self):
@@ -459,6 +510,7 @@ class DoubleDQNSolver(Solver):
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.learning_rate = learning_rate
+        self.replay_buffer_size = replay_buffer_size
         self.replay_buffer = ReplayBuffer(replay_buffer_size)
         self.tau = tau
         self.name = name
@@ -590,7 +642,7 @@ class DoubleDQNSolver(Solver):
             'epsilon_min': self.epsilon_min,
             'learning_rate': self.learning_rate,
             'tau': self.tau,
-            'replay_buffer_size': self.replay_buffer
+            'replay_buffer_size': self.replay_buffer_size
         }, file_path)
         
     @staticmethod
@@ -630,11 +682,11 @@ class DoubleDQNSolver(Solver):
 class GeneticSolver(Solver):
     def __init__(
         self,
-        population_size=100,
+        population_size=200,
         generations=500,
         mutation_rate=0.1,
         crossover_rate=0.2,
-        elite_fraction=0.05,
+        elite_fraction=0.02,
         checkpoint_interval=250,
         name="generic_genetic"
     ):
@@ -648,6 +700,9 @@ class GeneticSolver(Solver):
         self.convergence_history = []
         self.solution_found = False
         self.best_individual = None
+
+        self.stagnation_threshold = 30 
+        self.immigrant_interval = 20 
 
     def generate_population(self, solution_length):
         return torch.randint(0, 4, (self.population_size, solution_length), dtype=torch.int)
@@ -668,10 +723,11 @@ class GeneticSolver(Solver):
             fitness_scores[i] = self.evaluate_individual(env, individual)
         return fitness_scores
 
-    def tournament_selection(self, ranked_population, fitness_scores, tournament_size=3):
+    def tournament_selection(self, ranked_population, fitness_scores, tournament_size=2):
         selected = []
-        for _ in range(len(ranked_population)):
-            tournament_indices = torch.randint(0, len(ranked_population), (tournament_size,))
+        pop_len = len(ranked_population)
+        for _ in range(pop_len):
+            tournament_indices = torch.randint(0, pop_len, (tournament_size,))
             best_idx = tournament_indices[torch.argmax(fitness_scores[tournament_indices])]
             selected.append(ranked_population[best_idx])
         return torch.stack(selected)
@@ -693,12 +749,17 @@ class GeneticSolver(Solver):
         population = self.generate_population(solution_length)
 
         num_elites = max(1, int(self.elite_fraction * self.population_size))
-        log_file = os.path.join("logs_detailed/genetic", f"{self.name}_genetic_log.csv")
-        os.makedirs("logs_detailed/genetic", exist_ok=True)
+        log_dir = os.path.join("logs_detailed", "genetic")
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f"{self.name}_genetic_log.csv")
+
+        last_best_fitness = float('-inf')
+        last_improvement_gen = 0
+
         with open(log_file, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["generation", "best_fitness"])
-            
+
             for generation in range(self.generations):
                 fitness_scores = self.evaluate_population(env, population)
                 ranked_indices = torch.argsort(fitness_scores, descending=True)
@@ -711,7 +772,11 @@ class GeneticSolver(Solver):
 
                 print(f"Generation {generation}: Best fitness = {best_fitness:.3f}")
 
-                if best_fitness >= 10.0:
+                if best_fitness > last_best_fitness:
+                    last_best_fitness = best_fitness
+                    last_improvement_gen = generation
+
+                if best_fitness >= 20.0:
                     self.solution_found = True
                     print("Solution found!")
                     break
@@ -720,7 +785,7 @@ class GeneticSolver(Solver):
 
                 mutation_rate = max(0.01, self.mutation_rate * (1 - generation / self.generations))
 
-                parents = self.tournament_selection(ranked_population, fitness_scores)
+                parents = self.tournament_selection(ranked_population, fitness_scores, tournament_size=2)
                 new_population = []
                 for _ in range(self.population_size - num_elites):
                     parent1 = parents[random.randint(0, len(parents) - 1)]
@@ -731,8 +796,22 @@ class GeneticSolver(Solver):
 
                 population = torch.vstack([elites] + new_population)
 
-                if generation % self.checkpoint_interval == 0 and generation > 0:
+                if generation > 0 and generation % self.immigrant_interval == 0:
+                    immigrant_count = 5
+                    worst_indices = ranked_indices[-immigrant_count:]
+                    for idx in worst_indices:
+                        population[idx] = torch.randint(0, 4, (solution_length,), dtype=torch.int)
+                    print(f"Random immigrants introduced at generation {generation}.")
 
+                if (generation - last_improvement_gen) > self.stagnation_threshold:
+                    print(f"Stagnation detected at generation {generation}, resetting 10% of population.")
+                    reset_count = int(0.1 * self.population_size)
+                    reset_indices = random.sample(range(num_elites, self.population_size), reset_count)
+                    for idx in reset_indices:
+                        population[idx] = torch.randint(0, 4, (solution_length,), dtype=torch.int)
+                    last_improvement_gen = generation 
+
+                if generation % self.checkpoint_interval == 0 and generation > 0:
                     ckpt_path = f"{self.name}_checkpoint_gen{generation}.pt"
                     self.save(ckpt_path)
                     print(f"Checkpoint saved: {ckpt_path}")
@@ -748,9 +827,10 @@ class GeneticSolver(Solver):
         )
 
         metrics = self.calculate_metrics(self.convergence_history)
-        metrics_file = os.path.join("metrics/genetic", f"{self.name}.txt")
-        os.makedirs("metrics/genetic", exist_ok=True)
-        self.log_to_file(f"Metrics: {metrics}", metrics_file)
+        metrics_dir = os.path.join("metrics", "genetic")
+        os.makedirs(metrics_dir, exist_ok=True)
+        metrics_file = os.path.join(metrics_dir, f"{self.name}.txt")
+        self.log_to_file(f"Metrics: {metrics}", filename=metrics_file)
 
         return self.best_individual, metrics
 
@@ -769,7 +849,7 @@ class GeneticSolver(Solver):
             if done:
                 print("Goal reached by GeneticSolver!")
                 break
-        
+
         return path
 
     def solve_with_individual(self, env, individual, max_steps=None):
@@ -830,10 +910,14 @@ class PSOSolver(Solver):
         super().__init__(name=name)
         self.swarm_size = swarm_size
         self.max_iterations = max_iterations
-        self.inertia = inertia
+
+        self.start_inertia = inertia
+        self.end_inertia = 0.4
+        
         self.cognitive_coeff = cognitive_coeff
         self.social_coeff = social_coeff
         self.checkpoint_interval = checkpoint_interval
+        
         self.convergence_history = []
         self.best_solution = None
 
@@ -868,13 +952,22 @@ class PSOSolver(Solver):
         global_best_index = torch.argmax(personal_best_scores)
         global_best_position = personal_best_positions[global_best_index].clone()
         global_best_score = personal_best_scores[global_best_index].item()
-        
-        log_file = os.path.join("logs_detailed/pso", f"{self.name}_pso_log.csv")
-        os.makedirs("logs_detailed/pso", exist_ok=True)
+
+        last_improvement = 0
+        best_score_so_far = global_best_score
+
+        log_dir = os.path.join("logs_detailed/pso")
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f"{self.name}_pso_log.csv")
+
         with open(log_file, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["iteration", "best_fitness"])
+
             for iteration in range(self.max_iterations):
+                progress = iteration / self.max_iterations
+                self.inertia = self.start_inertia - progress * (self.start_inertia - self.end_inertia)
+
                 for i in range(self.swarm_size):
                     r1 = torch.rand(solution_length)
                     r2 = torch.rand(solution_length)
@@ -896,12 +989,28 @@ class PSOSolver(Solver):
                         personal_best_positions[i] = swarm[i].clone()
 
                 global_best_index = torch.argmax(personal_best_scores)
-                global_best_position = personal_best_positions[global_best_index].clone()
-                global_best_score = personal_best_scores[global_best_index].item()
-                writer.writerow([iteration, global_best_score])
+                current_best_score = personal_best_scores[global_best_index].item()
 
+                if current_best_score > global_best_score:
+                    global_best_score = current_best_score
+                    global_best_position = personal_best_positions[global_best_index].clone()
+                    last_improvement = iteration 
+
+                writer.writerow([iteration, global_best_score])
                 self.convergence_history.append(global_best_score)
+
                 print(f"Iteration {iteration}: Best fitness = {global_best_score:.3f}")
+
+                if iteration - last_improvement > 50:
+                    print(f"Stagnacja wykryta w iteracji {iteration}, reset 20% cząstek.")
+                    reset_count = int(0.2 * self.swarm_size)
+                    indices_to_reset = random.sample(range(self.swarm_size), reset_count)
+                    for idx in indices_to_reset:
+                        swarm[idx] = torch.randint(0, 4, (solution_length,), dtype=torch.int)
+                        velocities[idx] = torch.zeros(solution_length, dtype=torch.float)
+                    
+                    self.inertia = min(0.9, self.inertia + 0.1)
+                    last_improvement = iteration
 
                 if iteration % self.checkpoint_interval == 0 and iteration > 0:
                     ckpt_path = f"{self.name}_checkpoint_iter{iteration}.pt"
@@ -925,9 +1034,11 @@ class PSOSolver(Solver):
         )
 
         metrics = self.calculate_metrics(self.convergence_history)
-        metrics_file = os.path.join("metrics/pso", f"{self.name}.txt")
-        os.makedirs("metrics/pso", exist_ok=True)
-        self.log_to_file(f"Metrics: {metrics}", metrics_file)
+
+        metrics_dir = os.path.join("metrics/pso")
+        os.makedirs(metrics_dir, exist_ok=True)
+        metrics_file = os.path.join(metrics_dir, f"{self.name}.txt")
+        self.log_to_file(f"Metrics: {metrics}", filename=metrics_file)
 
         return self.best_solution, metrics
 
@@ -985,6 +1096,7 @@ class PSOSolver(Solver):
         solver.best_solution = checkpoint['best_solution']
         solver.convergence_history = checkpoint.get('convergence_history', [])
         return solver
+
 
 
 # ==============================================================================

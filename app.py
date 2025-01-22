@@ -15,9 +15,6 @@ register_solver("genetic", GeneticSolver)
 register_solver("pso", PSOSolver)
 register_solver("double_dqn", DoubleDQNSolver)
 
-# TODO wytrenuj
-# TODO dashboard i statystyki
-# TODO przeanalizuj jeszcze raz i wyciagnij wnioski
 app = Flask(__name__)
 
 def log_results_to_csv(file_path, headers, data):
@@ -93,6 +90,11 @@ def solve_maze():
 
     maze_path = os.path.join("mazes", f"{maze_name}.pt")
     
+    max_attempts = 100
+    final_path = None
+    found_solution = False
+    
+    
     if not os.path.exists(maze_path):
         return jsonify({"error": f"Maze '{maze_name}' not found!"}), 404
     maze = load_maze(maze_path)
@@ -101,12 +103,14 @@ def solve_maze():
     solving_time = None
     path = None
     start_time = time.time()
-
+    used_model_type = "placeholder"
     if solver_type == "not-ai":
         if solver_name == "bfs":
+            used_model_type = "bfs" 
             path = bfs(maze)
         elif solver_name == "a_star":
             path = a_star(maze)
+            used_model_type = "a_star"
         else:
             return jsonify({"error": f"Solver '{solver_name}' is not recognized!"}), 400
 
@@ -114,8 +118,9 @@ def solve_maze():
         model_path = os.path.join("trained_models", model_type, solver_name)
         if not os.path.exists(model_path):
             return jsonify({"error": f"Model '{solver_name}' not found in '{model_type}'!"}), 404
-
+        used_model_type = model_type  
         if model_type == "dqn":
+
             env = MazeEnvDQN(maze.tolist())
             solver = DQNSolver.load(model_path)
             path = solver.solve(env)
@@ -145,8 +150,8 @@ def solve_maze():
 
     log_results_to_csv(
         "solving_logs.csv",
-        ["Algorithm", "Maze Size", "Solving Time (s)", "Path Length"],
-        [solver_type, maze_size, round(solving_time, 2), path_length]
+        ["Algorithm type", "Model", "Maze Size", "Solving Time (s)", "Path Length"],
+        [solver_type, used_model_type, maze_size, round(solving_time, 2), path_length]
     )
     
     return jsonify({
