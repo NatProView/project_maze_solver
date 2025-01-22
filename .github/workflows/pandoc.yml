@@ -2,8 +2,9 @@ name: Build Documentation PDF
 
 on:
   push:
-    paths:
-      - 'README.md'
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build-pdf:
