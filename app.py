@@ -63,6 +63,8 @@ def generate_maze_api():
     width = int(data.get("width"))
     height = int(data.get("height"))
     name = data.get("name", "maze")
+    maze_path = "mazes"
+    os.makedirs(os.path.dirname("mazes/"), exist_ok=True)
 
     maze = generate_maze(width, height)
     maze_path = f"mazes/{name}.pt"
@@ -162,15 +164,6 @@ def solve_maze():
 @app.route("/list-solvers", methods=["GET"])
 def list_solvers():
     return jsonify({"solvers": list(SOLVERS.keys())})
-
-@app.route("/train-model-page")
-def train_model_page():
-    return render_template("train_model.html")
-
-@app.route("/guide")
-def guide():
-    return render_template("guide.html")
-
 
 @app.route("/train-model", methods=["POST"])
 def train_model():

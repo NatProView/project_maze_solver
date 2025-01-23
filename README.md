@@ -18,8 +18,17 @@ Maze Solver jest aplikacją do generowania i rozwiązywania labiryntów.
   - [Funkcjonalność](#funkcjonalność)
   - [Generowanie labiryntu](#generowanie-labiryntu)
   - [Trenowanie Modelu](#trenowanie-modelu)
+  - [Rozwiązywanie labiryntu](#rozwiązywanie-labiryntu)
+  - [Analityka](#analityka)
+    - [Metryki](#metryki)
+    - [Dashboard - statystyki](#dashboard---statystyki)
 - [Algorytmy i Rozwiązania](#algorytmy-i-rozwiązania)
-  - [Szczegóły dotyczące implementacji algorytmów i modeli AI](#szczegóły-dotyczące-implementacji-algorytmów-i-modeli-ai)
+  - [Główna logika związana z labiryntami.](#główna-logika-związana-z-labiryntami)
+  - [Rozwiązania związane z częscią aplikacji webowej](#rozwiązania-związane-z-częscią-aplikacji-webowej)
+    - [Endpointy aplikacji](#endpointy-aplikacji)
+    - [Wyjaśnienie działania plików JavaScript](#wyjaśnienie-działania-plików-javascript)
+      - [**`script.js`**](#scriptjs)
+      - [**`dashboard.js`**](#dashboardjs)
 - [Szczegóły Techniczne](#szczegóły-techniczne)
 ---
 
@@ -135,13 +144,43 @@ W `Training Metrics` znajdziemy informacje o rozkładzie nagród (DQN/DoubleDQN)
 
 `Training Convergence Plot` jest wizualizacją procesu uczenia się naszego modelu. Dla algorytmów DQN jest to wykres wartości nagród od epizodu, w PSO i Genetic Algorithm jest to wartość funkcji fitness od iteracji/pokolenia.
 
-
-
 ![Trained Info](documentation/prawa_strona_po_treningu.png)
+
+## Rozwiązywanie labiryntu
+Labirynt rozwiązemy w sekcji `Solve Maze`.
+
+Tutaj musimy podać nazwę labiryntu, który zamierzamy rozwiązac (w tym przypadku `5` o wymiarach 5x5) oraz metodę na rozwiązanie.
+
+W przypadku rozwiązania przez algorytm klasyczny wybieramy jedynie typ algorytmu. Jezeli jednk zdecydujemy się na algorytm AI, potrzebujemy podać konkretny wytrenowany model z rozwijanej listy.
+
+Po prawej analogicznie jak w przypadku treningu pojawi się wizualizacja labiryntu z rozwiązaniem (lub próbą jego znalezienia, jezeli algorytm nie będzie w stanie)
+
+Rozwiązanie za pomocą algorytmu klasycznego oraz modelu AI.
+
+<img src="documentation/solve-maze-choose-non-ai.png" width="45%" height="45%"/>
+<img src="documentation/solve-maze-choose-ai.png" width="45%" height="45%"/>
+
+## Analityka
+
+### Metryki
+Po wytrenowaniu modelu zobaczymy statystyki pomocne w debugowaniu. 
+
+<img src="documentation/metrics.png" width="45%" height="45%"/>
+
+### Dashboard - statystyki 
+W zakładce dashboard mozemy zobaczyc zestawienie statystyk związanych z trenowaniem i rozwiązywaniem algorytmów.
+
+Przykładowo w `Training Time by Maze Size` mozemy porównać czas potrzebny wy wytrenować dany model zebrany przez rozmiar labiryntu, na którym model trenowano
+
+<img src="documentation/dashboard-training-time.png" width="45%" height="45%"/>
+
+> [!NOTE]
+> Z powodu zmian implementacyjnych w trakcie rozwoju, pozostałe wykresy mogą nie działać - zmienił się sposób zbierania danych
 
 # Algorytmy i Rozwiązania
 
-## Szczegóły dotyczące implementacji algorytmów i modeli AI
+## Główna logika związana z labiryntami.
+
 Opis implementacji wraz z komentarzem na temat kodu znajduje się tutaj:
 
 - [Generowanie labiryntu metodą Ellera](documentation/maze-gen.md)
@@ -157,11 +196,54 @@ Opis implementacji wraz z komentarzem na temat kodu znajduje się tutaj:
 
 ---
 
+## Rozwiązania związane z częscią aplikacji webowej
+### Endpointy aplikacji
+
+- **`/`** (GET): Wyświetla stronę główną aplikacji (`index.html`).
+- **`/get-maze`** (POST): Pobiera labirynt o podanej nazwie z dysku. Zwraca jego strukturę w formacie JSON.
+- **`/get-models`** (GET): Zwraca listę dostępnych modeli trenowanych dla danego typu (np. "dqn", "genetic").
+- **`/generate-maze`** (POST): Generuje labirynt o określonych wymiarach, zapisuje go na dysku i zwraca jego strukturę.
+- **`/design-maze`** (POST): Zapisuje niestandardowy labirynt przesłany przez użytkownika w formacie JSON.
+- **`/solve-maze`** (POST): Rozwiązuje labirynt przy użyciu określonego algorytmu (np. BFS, A*, AI). Zwraca rozwiązanie w postaci ścieżki oraz czas rozwiązania.
+- **`/list-solvers`** (GET): Zwraca listę dostępnych solverów (np. "dqn", "genetic", "pso").
+- **`/train-model`** (POST): Trenuje model AI na podanym labiryncie i zapisuje wytrenowany model.
+- **`/dashboard`** (GET): Wyświetla stronę pulpitu analitycznego (`dashboard.html`).
+- **`/analytics-data`** (GET): Zwraca dane analityczne dotyczące rozwiązywania i trenowania modeli (czas rozwiązania, długości ścieżek, czasy trenowania).
+- **`/get-plot`** (GET): Pobiera wykres związanego z trenowaniem danego modelu w formacie PNG.
+
+---
+
+### Wyjaśnienie działania plików JavaScript
+
+#### **`script.js`**
+- Zarządza interakcją użytkownika na stronie głównej.
+- **Rysowanie siatki (`drawGrid`)**: Wizualizuje labirynt.
+- **Obsługa formularzy**:
+  - Formularz generowania labiryntu przesyła dane do endpointu `/generate-maze`, a następnie wyświetla labirynt.
+  - Formularz rozwiązywania labiryntu wysyła dane do `/solve-maze`, łączy ścieżkę z labiryntem i wyświetla wynik.
+- **Integracja AI i solverów**: 
+  - Dynamicznie wypełnia listy rozwijane solverów w zależności od typu (np. AI lub klasyczne algorytmy jak BFS i A*).
+- **Łączenie ścieżki z labiryntem (`mergePathIntoMaze`)**: Oznacza ścieżkę rozwiązania na siatce.
+- **Obsługa parametrów trenowania**: Wyświetla odpowiednie pola formularza w zależności od wybranego typu modelu (np. DQN, Genetic).
+
+
+#### **`dashboard.js`**
+- Odpowiada za wizualizację danych analitycznych na stronie pulpitu.
+- **Pobieranie danych analitycznych (`fetchAnalyticsData`)**: Komunikuje się z endpointem `/analytics-data` i pobiera logi rozwiązywania oraz trenowania.
+- **Tworzenie wykresów (`createChart`)**: Rysuje wykresy (np. czasu rozwiązywania, długości ścieżki) przy użyciu biblioteki Chart.js.
+- **Filtrowanie danych według rozmiaru labiryntu (`getUniqueMazeSizes`)**: Wybiera unikalne rozmiary labiryntów z danych analitycznych.
+- **Obsługa interfejsu użytkownika**:
+  - Umożliwia użytkownikowi filtrowanie danych według rozmiaru labiryntu.
+  - Dynamicznie aktualizuje wykresy po zmianie typu analizy (np. czas rozwiązywania, długość ścieżki).
+- **Inicjalizacja pulpitu (`initializeDashboard`)**: Ładuje dane analityczne i ustawia wykresy oraz interaktywne elementy strony. 
+
+
 
 # Szczegóły Techniczne
 Struktura projektu wygląda następująco
 
 ```bash
+├── documentation/       # Dokumentacja (grafiki, pliki markdown)
 ├── .github/             # Workflows GitHuba
 │   ├── workflows/
 ├── logs/                # Wykresy uczenia modeli AI
@@ -190,5 +272,5 @@ Struktura projektu wygląda następująco
 ├── app.py              # Punkt startowy aplikacji (Flask, endpointy)
 ├── models.py           # Definicje modeli AI
 ├── maze_generating.py  # Generowanie labiryntów
-├── maze_solving.py     # Rozwiązywanie labiryntów algorytmami nie-ai
+└── maze_solving.py     # Rozwiązywanie labiryntów algorytmami nie-ai
 ```
