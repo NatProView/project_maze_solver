@@ -16,8 +16,6 @@ matplotlib.use('Agg')
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
-# TODO moze pomoc is junction genetycznym i pso, tylko decyzje na skrzyzowaniach
-
 # ==============================================================================
 #                             MAZE ENVIRONMENTS
 # ==============================================================================

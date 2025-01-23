@@ -96,13 +96,53 @@ WARNING: This is a development server. Do not use it in a production deployment.
  * Running on http://127.0.0.1:5000 # nasz adres
 (...)
 ```
-
+## Funkcjonalność
+Tak wygląda strona główna aplikacji na start.
+![Index Page](documentation/strona_glowna.png)
 ## Generowanie labiryntu
 W sekcji `Generate Maze` podaj wymiary labiryntu oraz jego nazwę. 
 
 > [!NOTE]  
 > Uwaga: generator może nie wygenerować labiryntu powyżej pewnej złożoności (ok. 120x120) ze względu na rekursywną specyfikę aktualnej implementacji generatora.
+
 ![Generated Maze Example](documentation/generate_maze.png)
+
+Po wygenerowaniu labiryntu należy zwrócić uwagę na jego wizualizację po prawej stronie.
+
+
+![Visuzalization](documentation/visualization.png)
+
+## Trenowanie Modelu
+Założmy, że wygenerowaliśmy labirynt o wymiarach 7x7 i nazwalismy go po prostu `7`.
+W sekcji Train Model możemy wybrać typ modelu (DQN, DoubleDQN, Genetic Algorithm, PSO).
+
+Na potrzeby instrukcji wyszkolimy model Double DQN, nazwiemy go również po prostu `7` i wytrenujemy go na labiryncie `7`
+Użyjemy standardowych parametrów zaproponowanych przez aplikację.
+
+![Train Model](documentation/train_model.png)
+
+Po skończonym treningu warto zwrócić uwagę na prawą stronę naszej aplikacji.
+
+W sekcji `Maze Visualization` widzimy rozwiązanie labiryntu wygenerowane przez wytrenowany model. 
+
+W `Training Metrics` znajdziemy informacje o rozkładzie nagród (DQN/DoubleDQN) czy funkcji fitness(PSO, Genetic) 
+
+`Training Convergence Plot` jest wizualizacją procesu uczenia się naszego modelu. Dla algorytmów DQN jest to wykres wartości nagród od epizodu, w PSO i Genetic Algorithm jest to wartość funkcji fitness od iteracji/pokolenia.
+
+
+
+![Trained Info](documentation/prawa_strona_po_treningu.png)
+> [Caution]
+> TODO:
+> - [ ] Solve Maze opis
+> - [ ] Train Model opis
+> - [ ] Informacje o wykresach i metrykach
+
+## Algorytmy i Rozwiązania
+
+### Środowisko uczenia się modeli AI
+Dla każdego z naszych modeli mamy zdefiniowane środowisko
+
 ## Szczegóły Techniczne
 Struktura projektu wygląda następująco
 
