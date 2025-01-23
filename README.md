@@ -172,7 +172,7 @@ W zakładce dashboard mozemy zobaczyc zestawienie statystyk związanych z trenow
 
 Przykładowo w `Training Time by Maze Size` mozemy porównać czas potrzebny wy wytrenować dany model zebrany przez rozmiar labiryntu, na którym model trenowano
 
-<img src="documentation/dashboard-training-time.png" width="45%" height="45%"/>
+<img src="documentation/dashboard-training-time.png" width="60%" height="60%"/>
 
 > [!NOTE]
 > Z powodu zmian implementacyjnych w trakcie rozwoju, pozostałe wykresy mogą nie działać - zmienił się sposób zbierania danych
