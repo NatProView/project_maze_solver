@@ -1,7 +1,4 @@
 # Maze Solver
-Maze Solver jest aplikacją do generowania i rozwiązywania labiryntów. 
-
----
 
 ## Spis Treści
 - [Maze Solver](#maze-solver)
