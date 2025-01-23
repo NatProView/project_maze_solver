@@ -290,15 +290,15 @@ Double DQN to rozszerzenie klasycznego algorytmu Deep Q-Network (DQN), mające n
 Równanie aktualizacji wartości Q dla Double DQN wygląda następująco:
 \[ Q(s, a) \leftarrow r + \gamma \cdot Q_{target}(s', \text{argmax}(Q_{online}(s', a'))) \]
 
-> ![Note]
+> [!Note]
 > W procesie projektowania i testowania Algorytmu DQN wystąpiło wiele problemów z procesem nauki. Podczas naprawiania problemow okazało się, że najsensowniejsze będzie użycie Double DQN, ponieważ eliminuje on główne problemy poprzednika. 
->
 >Z tego powodu zostawiłem w pliku źródłowym definicję `DQNSolver` i można spróbować go wytrenować, jednak nie uzyska się sensownych wyników, więc pominąłem go w dokumentacji.
 >
 
-> ![Note]
+> [!Note]
 > `Soft Update` przetlumaczyłem jako `miękka aktualizacja`, jednak nie jestem pewien tego tłumaczenia. 
 > Jest to nazwa funkcji używającej współczynnika `tau`
+
 **Implementacja krok po kroku:**
 
 ```python
